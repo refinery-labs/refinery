@@ -41,7 +41,7 @@ class SecureEnclaveTemplate(ProjectTemplate):
         secure_frame_backend = self.create_secure_frame_backend(ciphertext_bucket["bucket_name"])
 
         diagram_data = {
-            "secrets": self.TEMPLATE_SECRETS,
+            "secrets": self.serialize_secrets(),
             "workflow_states": [
                 ciphertext_bucket,
                 # TODO (cthompson) for the ciphertext bucket, enable versioning and configure lifecycle rules with AWS::S3::Bucket Rule NoncurrentVersionTransition
@@ -51,15 +51,15 @@ class SecureEnclaveTemplate(ProjectTemplate):
                 keys_kv_table,
                 sessions_kv_table,
                 *[
-                    self.create_api_endpoint(*api_resource_params)
+                    self.create_api_endpoint(*api_resource_params, self.TEMPLATE_RESOURCES.secure_frame_backend)
                     for api_resource_params in [
-                        (self.TEMPLATE_RESOURCES.secure_frame_api_path, "GET", secure_frame_backend),
-                        (self.TEMPLATE_RESOURCES.tokenize_api_path, "POST", secure_frame_backend),
-                        (self.TEMPLATE_RESOURCES.detokenize_api_path, "POST", secure_frame_backend),
-                        (self.TEMPLATE_RESOURCES.session_verify_api_path, "POST", secure_frame_backend),
-                        (self.TEMPLATE_RESOURCES.session_ensure_api_path, "POST", secure_frame_backend),
-                        (self.TEMPLATE_RESOURCES.metadata_set_api_path, "POST", secure_frame_backend),
-                        (self.TEMPLATE_RESOURCES.metadata_get_api_path, "POST", secure_frame_backend)
+                        (self.TEMPLATE_RESOURCES.secure_frame_api_path, "GET"),
+                        (self.TEMPLATE_RESOURCES.tokenize_api_path, "POST"),
+                        (self.TEMPLATE_RESOURCES.detokenize_api_path, "POST"),
+                        (self.TEMPLATE_RESOURCES.session_verify_api_path, "POST"),
+                        (self.TEMPLATE_RESOURCES.session_ensure_api_path, "POST"),
+                        (self.TEMPLATE_RESOURCES.metadata_set_api_path, "POST"),
+                        (self.TEMPLATE_RESOURCES.metadata_get_api_path, "POST")
                     ]
                 ],
             ],

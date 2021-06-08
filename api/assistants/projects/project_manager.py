@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pinject
 from sqlalchemy.orm import scoped_session
-from typing import Callable
+from typing import Callable, Union, Tuple
 
 from assistants.aws_clients.aws_secrets_manager import AwsSecretsManagerFactory
 from assistants.projects.exceptions import UnknownProjectIdException, ProjectExistsException
@@ -68,13 +68,14 @@ class ProjectManager:
 
         return diagram_data
 
-    def create_project(self, dbsession, authenticated_user, project_name):
+    def create_project(self, dbsession, authenticated_user, project_name) -> Tuple[str, bool]:
         project = dbsession.query(Project).filter_by(
             name=project_name
         ).first()
 
         if project is not None:
-            raise ProjectExistsException(f"Project with the name: {project_name} already exists")
+            self.logger(f"Project with the name: {project_name} already exists")
+            return project.id, False
 
         project = Project()
         project.name = project_name
@@ -82,7 +83,7 @@ class ProjectManager:
         project.users.append(authenticated_user)
         dbsession.commit()
 
-        return project.id
+        return project.id, True
 
     def verify_project(self, dbsession, authenticated_user, project_id):
         project = dbsession.query(Project).filter_by(
@@ -152,4 +153,6 @@ class ProjectManager:
         project.versions.append(
             new_project_version
         )
+        dbsession.commit()
+
         return project_version

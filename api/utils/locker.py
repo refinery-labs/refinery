@@ -1,6 +1,8 @@
 import logging
 from datetime import datetime, timedelta
 
+import pinject
+
 from models.task_locks import TaskLock
 
 
@@ -16,28 +18,28 @@ class AcquireFailure(Exception):
     pass
 
 
-class Locker:
-    def __init__(self, app_name, expiry_delta=None):
-        self.app_name = app_name
-        self.expiry_delta = expiry_delta
+def _lock_name(name):
+    return f"refinery.{name}"
 
-        if self.expiry_delta is None:
-            self.expiry_delta = timedelta(minutes=15)
 
-    def _lock_name(self, name):
-        if self.app_name is None:
-            return name
+class LockFactory:
+    db_session_maker = None
 
-        return '{}.{}'.format(self.app_name, name)
+    @pinject.copy_args_to_public_fields
+    def __init__(self, db_session_maker):
+        pass
 
-    def lock(self, session, name):
-        lock_name = self._lock_name(name)
-        return Lock(session, lock_name, self.expiry_delta)
+    def lock(self, name, expiry_delta=None):
+        if expiry_delta is None:
+            expiry_delta = timedelta(minutes=15)
+
+        lock_name = _lock_name(name)
+        return Lock(self.db_session_maker, lock_name, expiry_delta)
 
 
 class Lock:
-    def __init__(self, session, task_id, expiry_delta):
-        self.session = session
+    def __init__(self, db_session_maker, task_id, expiry_delta):
+        self.db_session_maker = db_session_maker
         self.task_id = task_id
         self.expiry_delta = expiry_delta
         self.locked = False
@@ -54,7 +56,6 @@ class Lock:
             if current_time > task_lock.expiry:
                 task_lock.locked = True
                 task_lock.expiry = self._future_expiry()
-                self.session.commit()
                 return True
 
             # failed to acquire lock
@@ -62,32 +63,31 @@ class Lock:
 
         # lock was not locked, locking now
         task_lock.locked = True
-        self.session.commit()
         return True
 
     def _new_lock(self):
-        task_lock = TaskLock(
+        return TaskLock(
             self.task_id,
-            self._future_expiry(),
-            locked=True
+            self._future_expiry()
         )
-        self.session.add(task_lock)
-        self.session.commit()
 
     def acquire(self):
-        task_lock = self.session.query(TaskLock).filter_by(
-            task_id=self.task_id
-        ).first()
+        with self.db_session_maker() as session:
+            task_lock = session.query(TaskLock).filter_by(
+                task_id=self.task_id
+            ).first()
 
-        if task_lock:
-            if self._acquire_lock(task_lock):
-                self.locked = True
-                return True
-            return False
+            if task_lock:
+                if self._acquire_lock(task_lock):
+                    self.locked = True
+                    return True
+                return False
 
-        # create a new task lock in the table
-        self._new_lock()
-        self.locked = True
+            # create a new task lock in the table
+            task_lock = self._new_lock()
+            session.add(task_lock)
+
+            self.locked = True
         return True
 
     def release(self):
@@ -95,16 +95,16 @@ class Lock:
         if not self.locked:
             return
 
-        task_lock = self.session.query(TaskLock).filter_by(
-            task_id=self.task_id
-        ).first()
+        with self.db_session_maker() as session:
+            task_lock = session.query(TaskLock).filter_by(
+                task_id=self.task_id
+            ).first()
 
-        if not task_lock:
-            # lock doesn't exit, this is ok if we are releasing
-            return
+            if not task_lock:
+                # lock doesn't exit, this is ok if we are releasing
+                return
 
-        task_lock.locked = False
-        self.session.commit()
+            task_lock.locked = False
 
     def __enter__(self):
         if not self.acquire():

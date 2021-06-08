@@ -12,15 +12,40 @@ from assistants.aws_clients.aws_clients_assistant import AwsClientFactory
 from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from config.app_config import AppConfig
 from controller.logs.actions import delete_logs
-from data_types.deployment_stages import DeploymentStages
+from data_types.deployment_stages import DeploymentStages, DeploymentStates
 from assistants.deployments.serverless.builder import ServerlessBuilder
-from assistants.deployments.serverless.dismantler import ServerlessDismantler
+from assistants.deployments.serverless.dismantler import ServerlessDismantler, ServerlessDismantlerFactory
 from assistants.deployments.serverless.exceptions import RefineryDeploymentException
 from assistants.deployments.serverless.module_builder import ServerlessModuleBuilder
 from models import Deployment, Project, DeploymentLog
 from models.initiate_database import session_scope
 from services.workflow_manager.workflow_manager_service import WorkflowManagerException
 from tasks.athena import create_project_id_log_table
+from utils.locker import AcquireFailure, LockFactory
+
+
+class DeployStageConfig:
+    credentials = None
+    org_id = None
+    project_id = None
+    stage: DeploymentStages = None
+    diagram_data = None
+    deploy_workflows = True
+    create_log_table = True
+    new_deployment_id = None
+
+    @pinject.copy_args_to_public_fields
+    def __init__(
+            self,
+            credentials,
+            org_id,
+            project_id,
+            stage: DeploymentStages,
+            diagram_data,
+            deploy_workflows=True,
+            create_log_table=True,
+    ):
+        self.new_deployment_id = str(uuid4())
 
 
 class DeploymentManager(object):
@@ -31,7 +56,8 @@ class DeploymentManager(object):
     logger = None
     workflow_manager_service = None
     serverless_module_builder: ServerlessModuleBuilder = None
-    serverless_dismantler: ServerlessDismantler = None
+    serverless_dismantler_factory: ServerlessDismantlerFactory = None
+    lock_factory: LockFactory = None
 
     # noinspection PyUnresolvedReferences
     @pinject.copy_args_to_public_fields
@@ -44,7 +70,8 @@ class DeploymentManager(object):
         aws_client_factory,
         workflow_manager_service,
         serverless_module_builder,
-        serverless_dismantler,
+        serverless_dismantler_factory,
+        lock_factory,
         loop=None
     ):
         self.executor = futures.ThreadPoolExecutor(10)
@@ -69,6 +96,12 @@ class DeploymentManager(object):
         return existing_project
 
     @staticmethod
+    def get_deployment_with_id(dbsession, deployment_id) -> Deployment:
+        return dbsession.query(Deployment).filter_by(
+            deployment_id=deployment_id
+        ).first()
+
+    @staticmethod
     def get_deployment_with_tag(dbsession, tag) -> Deployment:
         return dbsession.query(Deployment).filter_by(
             tag=tag
@@ -84,20 +117,34 @@ class DeploymentManager(object):
             Deployment.timestamp.desc()
         ).first()
 
+    def mark_deployment_started(self, deployment_id):
+        with session_scope(self.db_session_maker) as dbsession:
+            dbsession.query(Deployment).filter_by(
+                deployment_id=deployment_id
+            ).update(
+                dict(state=DeploymentStates.in_progress)
+            )
+
+    def mark_deployment_failed(self, deployment_id, error):
+        with session_scope(self.db_session_maker) as dbsession:
+            dbsession.query(Deployment).filter_by(
+                deployment_id=deployment_id
+            ).update(
+                dict(state=DeploymentStates.failed, log=error)
+            )
+
     @staticmethod
-    def query_project_deployments(dbsession, project_id, stage=None, deployment_id=None, deployment_tag=None) -> Deployment:
+    def query_project_deployments(dbsession, project_id, stage=None, deployment_tag=None) -> Deployment:
         query_filters = {
             "project_id": project_id
         }
         if stage is not None:
             query_filters["stage"] = stage
-        if deployment_id is not None:
-            query_filters["deployment_id"] = deployment_id
         if deployment_tag is not None:
             query_filters["deployment_tag"] = deployment_tag
 
         return dbsession.query(Deployment).filter_by(
-            project_id=project_id, stage=stage
+            **query_filters
         ).order_by(
             Deployment.timestamp.desc()
         ).all()
@@ -137,21 +184,53 @@ class DeploymentManager(object):
             project_id
         )
 
-    @run_on_executor
-    def deploy_stage(
-            self,
-            credentials,
-            org_id,
-            project_id,
-            stage: DeploymentStages,
-            diagram_data,
-            deploy_workflows=True,
-            create_log_table=True,
-            new_deployment_id=None
+    def start_deploy_stage(
+        self,
+        config: DeployStageConfig
     ):
+        with session_scope(self.db_session_maker) as dbsession:
+            new_deployment = Deployment(id=config.new_deployment_id)
+            new_deployment.organization_id = config.org_id
+            new_deployment.project_id = config.project_id
+            new_deployment.stage = config.stage.value
+            dbsession.add(new_deployment)
+
+        # Do not await this async function
+        self.deploy_stage(config)
+
+        return config.new_deployment_id
+
+    @run_on_executor
+    def deploy_stage(self, config: DeployStageConfig):
+        lock_id = f"deploy_diagram_{config.project_id}"
+
+        try:
+            # Enforce that we are only attempting to do this multiple times simultaneously for the same project
+            with self.lock_factory.lock(lock_id):
+                self.deploy_stage(config)
+
+        except AcquireFailure:
+            error = f"Unable to acquire deploy diagram lock for {config.project_id}"
+            self.mark_deployment_failed(config.new_deployment_id, error)
+            self.logger(error)
+            raise RefineryDeploymentException(error)
+        except Exception as e:
+            error = "an error occurred while trying to deploy the project."
+            self.mark_deployment_failed(config.new_deployment_id, error)
+            raise RefineryDeploymentException(error)
+
+    def do_deploy_stage(
+        self,
+        config: DeployStageConfig
+    ):
+        # TODO check for collisions
+        if config.new_deployment_id is None:
+            error = "new deployment ID is not set"
+            self.mark_deployment_failed(config.new_deployment_id, error)
+            raise RefineryDeploymentException(error)
 
         with session_scope(self.db_session_maker) as dbsession:
-            latest_deployment = self.get_latest_deployment(dbsession, project_id, stage)
+            latest_deployment = self.get_latest_deployment(dbsession, config.project_id, config.stage)
 
             previous_deployment_json = {}
             if latest_deployment:
@@ -159,62 +238,54 @@ class DeploymentManager(object):
 
         previous_build_id = previous_deployment_json.get('build_id') if previous_deployment_json else None
 
-        # TODO check for collisions
-        if new_deployment_id is None:
-            new_deployment_id = str(uuid4())
-
         builder = ServerlessBuilder(
             self.app_config,
             self.aws_client_factory,
             self.serverless_module_builder,
-            credentials,
-            project_id,
-            new_deployment_id,
+            config.credentials,
+            config.project_id,
+            config.new_deployment_id,
             previous_build_id,
-            stage.value,
-            diagram_data
+            config.stage.value,
+            config.diagram_data
         )
 
-        self.logger(f"Deploying project: {project_id} with deployment id: {new_deployment_id}")
+        self.mark_deployment_started(config.new_deployment_id)
+
+        self.logger(f"Deploying project: {config.project_id} with deployment id: {config.new_deployment_id}")
         deployment_config = builder.build(rebuild=True)
 
         if deployment_config is None:
-            raise RefineryDeploymentException("an error occurred while trying to build and deploy the project.",)
+            error = "an error occurred while trying to build and deploy the project."
+            self.mark_deployment_failed(config.new_deployment_id, error)
+            raise RefineryDeploymentException(error)
 
-        if deploy_workflows:
+        if config.deploy_workflows:
             try:
                 self.workflow_manager_service.create_workflows_for_deployment(deployment_config)
             except WorkflowManagerException as e:
+                error = "an error occurred while trying to create workflows in the workflow manager."
+                self.mark_deployment_failed(config.new_deployment_id, error)
                 self.logger("An error occurred while trying to create workflows in the Workflow Manager: " + str(e), "error")
-                raise RefineryDeploymentException("an error occurred while trying to create workflows in the workflow manager.")
-
-        # Create deployment metadata
-        new_deployment = Deployment(id=new_deployment_id)
-        new_deployment.organization_id = org_id
-        new_deployment.project_id = project_id
-        new_deployment.deployment_json = json.dumps(deployment_config)
-        new_deployment.stage = stage.value
-        new_deployment.tag = builder.deployment_tag
+                raise RefineryDeploymentException(error)
 
         with session_scope(self.db_session_maker) as dbsession:
-            existing_project = self.get_existing_project(dbsession, project_id)
+            new_deployment = self.get_deployment_with_id(dbsession, config.new_deployment_id)
+            new_deployment.deployment_json = json.dumps(deployment_config)
+            new_deployment.tag = builder.deployment_tag
+            new_deployment.state = DeploymentStates.succeeded
+
+            existing_project = self.get_existing_project(dbsession, config.project_id)
             existing_project.deployments.append(new_deployment)
-            deployment_id = new_deployment.id
 
             deployment_log = DeploymentLog()
-            deployment_log.org_id = org_id
+            deployment_log.org_id = config.org_id
 
-        if create_log_table:
+        if config.create_log_table:
             project_log_table_future = self.create_project_id_log_table(
-                credentials,
-                project_id
+                config.credentials,
+                config.project_id
             )
-
-        return {
-            "deployment_id": deployment_id,
-            "deployment_tag": builder.deployment_tag,
-            "deployment_config": deployment_config
-        }
 
     @gen.coroutine
     def remove_project_deployments(self, credentials, project_id, remove_workflows=True):
@@ -254,12 +325,9 @@ class DeploymentManager(object):
     ):
         build_id = deployment_json.get('build_id') if deployment_json else None
 
-        serverless_dismantler = ServerlessDismantler(
-            self.app_config,
-            self.aws_client_factory,
+        serverless_dismantler = self.serverless_dismantler_factory.new_serverless_dismantler(
             credentials,
             build_id,
-            deployment_id,
             stage.value
         )
 

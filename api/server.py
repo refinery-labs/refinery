@@ -18,6 +18,7 @@ from assistants.deployments.api_gateway import ApiGatewayManager
 from assistants.deployments.awslambda import LambdaManager
 from assistants.deployments.dangling_resources import AwsResourceEnumerator
 from assistants.deployments.schedule_trigger import ScheduleTriggerManager
+from assistants.deployments.serverless.dismantler import ServerlessDismantler, ServerlessDismantlerFactory
 
 from assistants.projects.project_manager import ProjectManager
 from assistants.serverless.deploy import ServerlessDeployAssistant
@@ -48,6 +49,8 @@ from sys import maxsize
 from csv import field_size_limit
 
 # Increase CSV field size to be the max
+from utils.locker import LockFactory
+
 field_size_limit(maxsize)
 
 
@@ -90,8 +93,10 @@ if __name__ == "__main__":
         PythonBuilder,
         ServerlessDeployAssistant,
         ServerlessModuleBuilder,
+        ServerlessDismantlerFactory,
         AwsSecretsManagerFactory,
-        ProjectManager
+        ProjectManager,
+        LockFactory
     ]
 
     binding_specs = [

@@ -115,6 +115,8 @@ class ServerlessBuilder(Builder):
             logit(str(e), "error")
             return None
 
+        logit("Parsing Serverless Framework output...")
+
         parser = ServerlessInfoParser(serverless_output)
 
         lambda_resource_map = parser.lambda_resource_map
@@ -137,7 +139,8 @@ class ServerlessBuilder(Builder):
                 Key=self.s3_key
             )
         except ClientError as e:
-            logit(f'Error while accessing previous build artifact: {e.response}')
+            error_message = e.response["Error"]["Message"]
+            logit(f'Error while accessing previous build artifact ({self.s3_bucket}{self.s3_key}): {error_message}')
             return None
 
         s3_file_bytes = s3_file["Body"].read()
@@ -145,7 +148,7 @@ class ServerlessBuilder(Builder):
         return BytesIO(s3_file_bytes)
 
     def perform_serverless_deploy(self, zipfile):
-        logit(f'Creating s3 build bundle override at {self.s3_path}')
+        logit(f"Creating s3 build bundle override at {self.s3_path}")
 
         self.s3.put_object(
             Bucket=self.s3_bucket,
@@ -164,6 +167,8 @@ class ServerlessBuilder(Builder):
             "function_name": None,
             "deployment_id": self.deployment_id
         }
+
+        logit(f"Performing Serverless Framework deploy for deployment: {self.deployment_id}...")
 
         resp = self.lambda_function.invoke(
             FunctionName=self.serverless_framework_builder_arn,

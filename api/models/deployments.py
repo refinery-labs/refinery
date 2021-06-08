@@ -1,6 +1,6 @@
 from sqlalchemy import Enum
 
-from data_types.deployment_stages import DeploymentStages
+from data_types.deployment_stages import DeploymentStages, DeploymentStates
 from .initiate_database import *
 from .projects import Project
 import json
@@ -42,6 +42,10 @@ class Deployment(Base):
 
     tag = Column(Text())
 
+    state = Column(Enum(DeploymentStates), nullable=False, default=DeploymentStates.not_started)
+
+    log = Column(Text())
+
     timestamp = Column(Integer())
 
     def __init__(self, id=None):
@@ -57,6 +61,9 @@ class Deployment(Base):
             "project_id",
             "organization_id",
             "deployment_json",
+            "state",
+            "log",
+            "tag",
             "timestamp"
         ]
 

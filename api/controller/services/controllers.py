@@ -68,7 +68,8 @@ class GenerateDeploymentAuthSecret(BaseHandler):
         self.dbsession.commit()
 
         self.write({
-            "success": True
+            "success": True,
+            "secret": deployment_auth.secret
         })
 
 

@@ -1,20 +1,43 @@
+from __future__ import annotations
+
 import base64
 import json
 
+import pinject
+
+from assistants.aws_clients.aws_clients_assistant import AwsClientFactory
 from assistants.deployments.base import Dismantler
 from functools import cached_property
 
 from assistants.deployments.serverless.exceptions import LambdaInvokeException
+from config.app_config import AppConfig
 from utils.general import logit
 
 
+class ServerlessDismantlerFactory:
+    app_config: AppConfig = None
+    aws_client_factory: AwsClientFactory = None
+
+    @pinject.copy_args_to_public_fields
+    def __init__(self, app_config, aws_client_factory):
+        pass
+
+    def new_serverless_dismantler(self, credentials, build_id, stage) -> ServerlessDismantler:
+        return ServerlessDismantler(
+            self.app_config,
+            self.aws_client_factory,
+            credentials,
+            build_id,
+            stage
+        )
+
+
 class ServerlessDismantler(Dismantler):
-    def __init__(self, app_config, aws_client_factory, credentials, build_id, deployment_id, stage):
+    def __init__(self, app_config, aws_client_factory, credentials, build_id, stage):
         self.app_config = app_config
         self.aws_client_factory = aws_client_factory
         self.credentials = credentials
         self.build_id = build_id
-        self.deployment_id = deployment_id
         self.stage = stage
 
     @cached_property

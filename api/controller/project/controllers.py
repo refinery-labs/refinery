@@ -1,11 +1,11 @@
 import pinject
 from tornado import gen
 
-from assistants.deployments.deployment_manager import DeploymentManager
+from assistants.deployments.deployment_manager import DeploymentManager, DeployStageConfig
 from assistants.projects.project_manager import ProjectManager
-from assistants.serverless.deploy import ServerlessDeploymentConfig
 from controller import BaseHandler
 from controller.decorators import secret_authentication
+from data_types.deployment_stages import DeploymentStages
 from utils.locker import AcquireFailure
 
 
@@ -28,18 +28,21 @@ class ProjectCreate(BaseHandler):
     @secret_authentication
     @gen.coroutine
     def post(self, user_id):
+        user = self.get_authenticated_user(user_id)
+
         project_create = ProjectCreateSchema(**self.json)
 
         # TODO (cthompson) catch error project_name already exists
-        project_id = self.project_manager.create_project(
+        project_id, new_project = self.project_manager.create_project(
             self.dbsession,
-            self.authenticated_user,
+            user,
             project_create.project_name
         )
 
         self.write({
             "success": True,
-            "project_id": project_id
+            "project_id": project_id,
+            "new_project": new_project
         })
 
 
@@ -50,10 +53,9 @@ class ProjectBuildDependencies:
 
 
 class ProjectBuildSchema:
-    def __init__(self, template_name, inputs, workflow_states, stage, project_id):
+    def __init__(self, template_name, inputs, stage, project_id):
         self.template_name = template_name
         self.inputs = inputs
-        self.workflow_states = workflow_states
         self.stage = stage
         self.project_id = project_id
 
@@ -95,8 +97,9 @@ class ProjectBuild(BaseHandler):
 
         latest_deployment_json = latest_deployment.deployment_json if latest_deployment is not None else {}
 
+        credentials = self.get_authenticated_user_cloud_configuration(org_id=user.organization_id)
         diagram_data = self.project_manager.build_project_from_template(
-            self.user_aws_credentials,
+            credentials,
             project_build.template_name,
             project_id,
             latest_deployment_json,
@@ -158,52 +161,44 @@ class ProjectDeploy(BaseHandler):
         project_version_json = self.project_manager.get_project_version(
             self.dbsession, project_id, project_deploy.project_version)
 
-        lock_id = f"deploy_diagram_{project_id}"
+        deployment_stage = DeploymentStages(project_deploy.stage)
 
-        task_lock = self.task_locker.lock(self.dbsession, lock_id)
+        credentials = self.get_authenticated_user_cloud_configuration(org_id=user.organization_id)
 
-        try:
-            # Enforce that we are only attempting to do this multiple times simultaneously for the same project
-            with task_lock:
-                credentials = self.get_authenticated_user_cloud_configuration(org_id=user.organization_id)
-                result = self.deployment_manager.deploy_stage(
-                    credentials,
-                    user.organization_id,
-                    project_id,
-                    project_deploy.stage,
-                    project_version_json,
-                    deploy_workflows=False,
-                )
-                self.write({
-                    "success": True,
-                    **result
-                })
+        deployment_config: DeployStageConfig = DeployStageConfig(
+            credentials,
+            user.organization_id,
+            project_id,
+            deployment_stage,
+            project_version_json,
+            deploy_workflows=False,
+        )
 
-        except AcquireFailure:
-            self.logger("Unable to acquire deploy diagram lock for " + project_id)
-            self.write({
-                "success": False,
-                "code": "DEPLOYMENT_LOCK_FAILURE",
-                "msg": "Deployment for this project is already in progress",
-            })
+        deployment_id = self.deployment_manager.start_deploy_stage(
+            deployment_config
+        )
+
+        self.write({
+            "success": True,
+            "deployment_id": deployment_id
+        })
 
 
-class ProjectDeploymentDependencies:
+class ProjectDeploymentsDependencies:
     @pinject.copy_args_to_public_fields
     def __init__(self, project_manager, deployment_manager):
         pass
 
 
-class ProjectDeploymentSchema:
-    def __init__(self, project_id, stage=None, deployment_id=None, deployment_tag=None):
+class ProjectDeploymentsSchema:
+    def __init__(self, project_id, stage=None, deployment_tag=None):
         self.project_id = project_id
         self.stage = stage
-        self.deployment_id = deployment_id
         self.deployment_tag = deployment_tag
 
 
-class ProjectDeployment(BaseHandler):
-    dependencies = ProjectDeploymentDependencies
+class ProjectDeployments(BaseHandler):
+    dependencies = ProjectDeploymentsDependencies
 
     project_manager: ProjectManager = None
     deployment_manager: DeploymentManager = None
@@ -213,7 +208,7 @@ class ProjectDeployment(BaseHandler):
     def post(self, user_id):
         user = self.get_authenticated_user(user_id)
 
-        project_deployment = ProjectDeploymentSchema(**self.json)
+        project_deployment = ProjectDeploymentsSchema(**self.json)
 
         project_id = project_deployment.project_id
 
@@ -233,12 +228,62 @@ class ProjectDeployment(BaseHandler):
             self.dbsession,
             project_id,
             project_deployment.stage,
-            project_deployment.deployment_id,
             project_deployment.deployment_tag,
         )
+
+        serialized_deployments = [
+            deployment.to_dict() for deployment in deployments
+        ]
         self.write({
             "success": True,
-            "deployments": deployments
+            "deployments": serialized_deployments
+        })
+
+
+class ProjectDeploymentDependencies:
+    @pinject.copy_args_to_public_fields
+    def __init__(self, project_manager, deployment_manager):
+        pass
+
+
+class ProjectDeploymentSchema:
+    def __init__(self, deployment_id):
+        self.deployment_id = deployment_id
+
+
+class ProjectDeployment(BaseHandler):
+    dependencies = ProjectDeploymentDependencies
+
+    project_manager: ProjectManager = None
+    deployment_manager: DeploymentManager = None
+
+    @secret_authentication
+    @gen.coroutine
+    def post(self, user_id):
+        user = self.get_authenticated_user(user_id)
+
+        project_deployment = ProjectDeploymentSchema(**self.json)
+
+        deployment = self.deployment_manager.get_deployment_with_id(
+            self.dbsession,
+            project_deployment.deployment_id,
+        )
+
+        valid_project = self.project_manager.verify_project(
+            self.dbsession,
+            user,
+            deployment.project_id
+        )
+        if not valid_project:
+            self.write({
+                "success": False,
+                "error": "user is unauthorized to access deployment"
+            })
+            return
+
+        self.write({
+            "success": True,
+            "deployment": deployment.deployment_json
         })
 
 

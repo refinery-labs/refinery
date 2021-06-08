@@ -15,18 +15,22 @@ from utils.crypto_utils import generate_public_private_key_pair
 T = TypeVar('T')
 
 
-def filter_private_members(d):
-    return list(filter(lambda k, v: not k.startswith("_"), d))
+def filter_private_members(d: Dict) -> List:
+    filtered_members = []
+    for k, v in d.items():
+        if not k.startswith("_"):
+            filtered_members.append(v)
+    return filtered_members
 
 
 def get_object_members(o):
-    return filter_private_members(vars(o).items())
+    return filter_private_members(vars(o))
 
 
 class ProjectResource:
     def __init__(self, name):
         self.name = name
-        self.id = uuid4()
+        self.id = str(uuid4())
 
 
 class ProjectSecret:
@@ -34,6 +38,12 @@ class ProjectSecret:
         self.name = name
         self.secret_type = secret_type
         self.arn = None
+
+    def __str__(self):
+        return {
+            "name": self.name,
+            "arn": self.arn
+        }
 
 
 class ProjectSecrets:
@@ -83,10 +93,13 @@ class ProjectTemplate(abc.ABC, Generic[T]):
 
     @cached_property
     def template_secrets(self) -> List[ProjectSecret]:
-        return get_object_members(self.TEMPLATE_RESOURCES)
+        return get_object_members(self.TEMPLATE_SECRETS)
 
     def resolve_known_workflow_state_ids(self, deployment_json):
-        workflow_states = deployment_json["workflow_states"]
+        workflow_states = deployment_json.get("workflow_states")
+        if workflow_states is None:
+            return
+
         ws_lookup_by_name = {
             ws["name"] if ws.get("name") else ws.get("api_path"):
                 ws for ws in workflow_states
@@ -127,6 +140,12 @@ class ProjectTemplate(abc.ABC, Generic[T]):
             secret_arn = self.secrets_manager.store_secret(secret_name, created_secret)
 
             project_secret.arn = secret_arn
+
+    def serialize_secrets(self):
+        return [{
+            "name": secret.name,
+            "arn": secret.arn
+        } for secret in get_object_members(self.TEMPLATE_SECRETS)]
 
     @staticmethod
     def create_new_hybrid_encryption_keyset():
@@ -179,12 +198,12 @@ class ProjectTemplate(abc.ABC, Generic[T]):
             ]
         }
 
-    def create_api_endpoint(self, path, method, lambda_config):
+    def create_api_endpoint(self, path: ProjectResource, method, lambda_resource: ProjectResource):
         return {
-            "id": self.name_to_resource[path].id,
+            "id": path.id,
             "type": "api_endpoint",
-            "api_path": path,
+            "api_path": path.name,
             "http_method": method,
-            "lambda_proxy": lambda_config["id"]
+            "lambda_proxy": lambda_resource.id
         }
 

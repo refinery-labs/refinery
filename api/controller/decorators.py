@@ -66,7 +66,7 @@ def secret_authentication(func):
             })
             return
 
-        return func(*args, org_id=deployment_auth.user_id, **kwargs)
+        return func(*args, user_id=deployment_auth.user_id, **kwargs)
     return wrapper
 
 
