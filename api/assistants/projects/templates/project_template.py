@@ -74,7 +74,7 @@ class ProjectTemplate(abc.ABC, Generic[T]):
         if self.TEMPLATE_SECRETS is not None:
             self.name_to_secret: Dict[str, ProjectSecret] = {secret.name: secret for secret in self.template_secrets}
 
-    def init(self, deployment_json):
+    def init(self, deployment_json: dict):
         if deployment_json is None:
             return
 
@@ -95,7 +95,7 @@ class ProjectTemplate(abc.ABC, Generic[T]):
     def template_secrets(self) -> List[ProjectSecret]:
         return get_object_members(self.TEMPLATE_SECRETS)
 
-    def resolve_known_workflow_state_ids(self, deployment_json):
+    def resolve_known_workflow_state_ids(self, deployment_json: dict):
         workflow_states = deployment_json.get("workflow_states")
         if workflow_states is None:
             return
@@ -111,12 +111,14 @@ class ProjectTemplate(abc.ABC, Generic[T]):
                 continue
             resource.id = ws["id"]
 
-    def resolve_known_secrets(self, deployment_json):
+    def resolve_known_secrets(self, deployment_json: dict):
         secrets = deployment_json.get("secrets")
         if secrets is None:
             return
 
-        for name, secret_arn in secrets.items():
+        for secret in secrets:
+            name = secret.get("name")
+            secret_arn = secret.get("arn")
             project_secret = self.name_to_secret.get(name)
             if project_secret is None:
                 continue

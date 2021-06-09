@@ -1,3 +1,5 @@
+import enum
+
 from sqlalchemy import Enum
 
 from data_types.deployment_stages import DeploymentStages, DeploymentStates
@@ -71,12 +73,16 @@ class Deployment(Base):
         return_dict = {}
 
         for attribute in exposed_attributes:
+            value = getattr(self, attribute)
+            if issubclass(value.__class__, enum.Enum):
+                value = value.value
             if attribute in json_attributes:
-                return_dict[attribute] = json.loads(
-                    getattr(self, attribute)
-                )
-            else:
-                return_dict[attribute] = getattr(self, attribute)
+                if value is not None:
+                    value = json.loads(value)
+                else:
+                    value = {}
+
+            return_dict[attribute] = value
 
         return return_dict
 

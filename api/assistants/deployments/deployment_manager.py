@@ -98,7 +98,7 @@ class DeploymentManager(object):
     @staticmethod
     def get_deployment_with_id(dbsession, deployment_id) -> Deployment:
         return dbsession.query(Deployment).filter_by(
-            deployment_id=deployment_id
+            id=deployment_id
         ).first()
 
     @staticmethod
@@ -120,7 +120,7 @@ class DeploymentManager(object):
     def mark_deployment_started(self, deployment_id):
         with session_scope(self.db_session_maker) as dbsession:
             dbsession.query(Deployment).filter_by(
-                deployment_id=deployment_id
+                id=deployment_id
             ).update(
                 dict(state=DeploymentStates.in_progress)
             )
@@ -128,7 +128,7 @@ class DeploymentManager(object):
     def mark_deployment_failed(self, deployment_id, error):
         with session_scope(self.db_session_maker) as dbsession:
             dbsession.query(Deployment).filter_by(
-                deployment_id=deployment_id
+                id=deployment_id
             ).update(
                 dict(state=DeploymentStates.failed, log=error)
             )
@@ -207,22 +207,19 @@ class DeploymentManager(object):
         try:
             # Enforce that we are only attempting to do this multiple times simultaneously for the same project
             with self.lock_factory.lock(lock_id):
-                self.deploy_stage(config)
+                self.do_deploy_stage(config)
+                # except Exception as e:
+                #     print(e)
+                #     error = f"An error occurred while trying to deploy the project: {e}"
+                #     self.mark_deployment_failed(config.new_deployment_id, error)
 
         except AcquireFailure:
-            error = f"Unable to acquire deploy diagram lock for {config.project_id}"
+            error = f"Unable to acquire deploy diagram lock for project {config.project_id}"
             self.mark_deployment_failed(config.new_deployment_id, error)
             self.logger(error)
             raise RefineryDeploymentException(error)
-        except Exception as e:
-            error = "an error occurred while trying to deploy the project."
-            self.mark_deployment_failed(config.new_deployment_id, error)
-            raise RefineryDeploymentException(error)
 
-    def do_deploy_stage(
-        self,
-        config: DeployStageConfig
-    ):
+    def do_deploy_stage(self, config: DeployStageConfig):
         # TODO check for collisions
         if config.new_deployment_id is None:
             error = "new deployment ID is not set"
@@ -233,7 +230,7 @@ class DeploymentManager(object):
             latest_deployment = self.get_latest_deployment(dbsession, config.project_id, config.stage)
 
             previous_deployment_json = {}
-            if latest_deployment:
+            if latest_deployment and latest_deployment.deployment_json:
                 previous_deployment_json = json.loads(latest_deployment.deployment_json)
 
         previous_build_id = previous_deployment_json.get('build_id') if previous_deployment_json else None

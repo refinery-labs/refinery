@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 
 import pinject
 
+from models.initiate_database import session_scope
 from models.task_locks import TaskLock
 
 
@@ -72,7 +73,7 @@ class Lock:
         )
 
     def acquire(self):
-        with self.db_session_maker() as session:
+        with session_scope(self.db_session_maker) as session:
             task_lock = session.query(TaskLock).filter_by(
                 task_id=self.task_id
             ).first()
@@ -93,18 +94,24 @@ class Lock:
     def release(self):
         # if we were not locked in the first place, do not update db
         if not self.locked:
+            print("we are not locked")
             return
 
-        with self.db_session_maker() as session:
-            task_lock = session.query(TaskLock).filter_by(
-                task_id=self.task_id
-            ).first()
+        # TODO (cthompson) for some reason session scope doesnt work here...
+        session = self.db_session_maker()
 
-            if not task_lock:
-                # lock doesn't exit, this is ok if we are releasing
-                return
+        task_lock = session.query(TaskLock).filter_by(
+            task_id=self.task_id
+        ).first()
 
-            task_lock.locked = False
+        if not task_lock:
+            # lock doesn't exit, this is ok if we are releasing
+            session.close()
+            return
+
+        task_lock.locked = False
+        session.commit()
+        session.close()
 
     def __enter__(self):
         if not self.acquire():
@@ -115,7 +122,5 @@ class Lock:
         self.release()
 
     def __del__(self):
-        try:
-            self.release()
-        except Exception:
-            pass
+        self.release()
+

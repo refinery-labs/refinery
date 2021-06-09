@@ -295,14 +295,11 @@ class DeployDiagram(BaseHandler):
         project_config = self.json["project_config"]
 
         lock_id = "deploy_diagram_" + project_id
-
-        task_lock = self.task_locker.lock(self.dbsession, lock_id)
-
         try:
             # Enforce that we are only attempting to do this multiple times simultaneously for the same project
-            with task_lock:
+            with self.lock_factory.lock(lock_id):
                 yield self.do_diagram_deployment(
-                    project_id,diagram_data, project_config)
+                    project_id, diagram_data, project_config)
 
         except AcquireFailure:
             self.logger("Unable to acquire deploy diagram lock for " + project_id)

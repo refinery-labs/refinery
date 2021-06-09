@@ -21,7 +21,7 @@ depends_on = None
 
 
 def upgrade():
-    deployment_states = postgresql.ENUM(DeploymentStates, name="deployment_stages")
+    deployment_states = postgresql.ENUM(DeploymentStates, name="deployment_states")
     deployment_states.create(op.get_bind(), checkfirst=True)
     op.add_column('deployments', sa.Column('state', deployment_states, default=DeploymentStates.not_started.value))
     op.add_column('deployments', sa.Column('log', sa.Text()))

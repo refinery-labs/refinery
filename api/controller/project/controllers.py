@@ -1,3 +1,5 @@
+import json
+
 import pinject
 from tornado import gen
 
@@ -95,7 +97,9 @@ class ProjectBuild(BaseHandler):
 
         self.logger(f"building project: {project_id} from template: {project_build.template_name}")
 
-        latest_deployment_json = latest_deployment.deployment_json if latest_deployment is not None else {}
+        latest_deployment_json = {}
+        if latest_deployment and latest_deployment.deployment_json:
+            latest_deployment_json = json.loads(latest_deployment.deployment_json)
 
         credentials = self.get_authenticated_user_cloud_configuration(org_id=user.organization_id)
         diagram_data = self.project_manager.build_project_from_template(
@@ -174,6 +178,8 @@ class ProjectDeploy(BaseHandler):
             deploy_workflows=False,
         )
 
+        self.logger(f"starting deployment for project: {project_id} version: {project_deploy.project_version} for stage: {deployment_stage}")
+
         deployment_id = self.deployment_manager.start_deploy_stage(
             deployment_config
         )
@@ -247,8 +253,9 @@ class ProjectDeploymentDependencies:
 
 
 class ProjectDeploymentSchema:
-    def __init__(self, deployment_id):
+    def __init__(self, deployment_id=None, deployment_tag=None):
         self.deployment_id = deployment_id
+        self.deployment_tag = deployment_tag
 
 
 class ProjectDeployment(BaseHandler):
@@ -264,10 +271,22 @@ class ProjectDeployment(BaseHandler):
 
         project_deployment = ProjectDeploymentSchema(**self.json)
 
-        deployment = self.deployment_manager.get_deployment_with_id(
-            self.dbsession,
-            project_deployment.deployment_id,
-        )
+        if project_deployment.deployment_id is not None:
+            deployment = self.deployment_manager.get_deployment_with_id(
+                self.dbsession,
+                project_deployment.deployment_id,
+            )
+        elif project_deployment.deployment_tag is not None:
+            deployment = self.deployment_manager.get_deployment_with_tag(
+                self.dbsession,
+                project_deployment.deployment_tag,
+            )
+        else:
+            self.write({
+                "success": False,
+                "error": "deployment ID or deployment tag not given"
+            })
+            return
 
         valid_project = self.project_manager.verify_project(
             self.dbsession,
@@ -283,7 +302,7 @@ class ProjectDeployment(BaseHandler):
 
         self.write({
             "success": True,
-            "deployment": deployment.deployment_json
+            **deployment.to_dict()
         })
 
 

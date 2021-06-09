@@ -6,7 +6,6 @@ import time
 from tornado import gen
 from typing import Optional
 
-from models import User
 from models.deployment_auth import DeploymentAuth
 from models.initiate_database import *
 from models.users import User
@@ -15,7 +14,7 @@ from models.aws_accounts import AWSAccount
 from models.organizations import Organization
 
 from utils.general import logit
-from utils.locker import Locker
+from utils.locker import LockFactory
 
 CSRF_EXEMPT_ENDPOINTS = [
     "/services/v1/mark_account_needs_closing",
@@ -43,7 +42,7 @@ class TornadoBaseHandlerInjectionMixin:
 
 class BaseHandlerDependencies:
     @pinject.copy_args_to_public_fields
-    def __init__(self, logger, db_session_maker, app_config, task_spawner):
+    def __init__(self, logger, db_session_maker, app_config, task_spawner, lock_factory):
         pass
 
 
@@ -54,6 +53,7 @@ class BaseHandler(TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler):
     db_session_maker = None
     app_config = None
     task_spawner = None
+    lock_factory: LockFactory = None
 
     _dbsession = None
     json = None
@@ -86,8 +86,6 @@ class BaseHandler(TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler):
         self._dbsession = None
 
         self.allowed_origins = json.loads(self.app_config.get("access_control_allow_origins"))
-
-        self.task_locker = Locker("refinery")
 
     @property
     def dbsession(self):

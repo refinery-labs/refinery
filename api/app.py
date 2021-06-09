@@ -13,7 +13,8 @@ from controller.health import *
 from controller.internal import *
 from controller.lambdas import *
 from controller.logs import *
-from controller.project.controllers import ProjectCreate, ProjectBuild, ProjectDeploy, ProjectDeployment, ProjectRemove
+from controller.project.controllers import ProjectCreate, ProjectBuild, ProjectDeploy, ProjectDeployment, ProjectRemove, \
+    ProjectDeployments
 from controller.projects import *
 from controller.projects.controllers_short_links import GetProjectShortlink, CreateProjectShortlink
 from controller.saved_blocks import *
