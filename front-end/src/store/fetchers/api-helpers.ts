@@ -230,7 +230,7 @@ export async function getAdditionalLogsByPage(
     return null;
   }
 
-  // Create an object with log_id as the key
+  // Create an object with log_id as the key.
   const logs = R.indexBy(r => r.log_id, response.result.results);
 
   return {
