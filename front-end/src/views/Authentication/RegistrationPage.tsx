@@ -87,16 +87,9 @@ export default class RegistrationPage extends Vue {
   renderCallToAction() {
     return (
       <div>
-        <h3 class="text-center py-2">Thank you for trying Refinery!</h3>
-        <h4 class="font-weight-normal">Free $5 credit when you signup today. :)</h4>
-        <h4 class="font-weight-normal">With Refinery, you pay only for the compute you use (minimum $5 per month).</h4>
-        <h4>
-          For more information, review our{' '}
-          <a href="https://www.refinery.io/pricing" target="_blank">
-            full pricing details here
-          </a>
-          .
-        </h4>
+        <h3 class="text-center py-2">We are no longer accepting new users for Refinery.</h3>
+        <h4>For more information, please email support@refinery.io</h4>
+        <h4>Thank you for your interest, and have a great day!</h4>
       </div>
     );
   }
@@ -134,6 +127,7 @@ export default class RegistrationPage extends Vue {
                 placeholder="user@example.com"
                 state={this.registrationEmailInputValid}
                 autofocus={true}
+                disabled={true}
               />
               <div class="input-group-append">
                 <span class="input-group-text text-muted bg-transparent border-left-0">
@@ -163,6 +157,7 @@ export default class RegistrationPage extends Vue {
                 required
                 placeholder="John Doe"
                 state={this.registrationNameInputValid}
+                disabled={true}
               />
               <div class="input-group-append">
                 <span class="input-group-text text-muted bg-transparent border-left-0">
@@ -211,6 +206,7 @@ export default class RegistrationPage extends Vue {
                 type="tel"
                 placeholder="+1 (555) 555-5555"
                 required={false}
+                disabled={true}
               />
               <div class="input-group-append">
                 <span class="input-group-text text-muted bg-transparent border-left-0">
@@ -236,6 +232,7 @@ export default class RegistrationPage extends Vue {
                 type="text"
                 placeholder="Startup Company Inc."
                 state={this.registrationOrgNameInputValid}
+                disabled={true}
               />
               <div class="input-group-append">
                 <span class="input-group-text text-muted bg-transparent border-left-0">
@@ -258,6 +255,7 @@ export default class RegistrationPage extends Vue {
               on={{ change: this.onTermsCheckboxUpdated }}
               state={this.termsAndConditionsAgreedValid}
               checked={this.termsAndConditionsAgreed}
+              disabled={true}
             >
               I have read and agree with the
               <a class="ml-1" href="/terms-of-service" target="_blank">
@@ -274,7 +272,7 @@ export default class RegistrationPage extends Vue {
             {this.registrationErrorMessage}
           </b-form-invalid-feedback>
           <span style="color: red;">*</span> = Required Field
-          <button class="btn btn-block btn-primary mt-3" type="submit">
+          <button class="btn btn-block btn-primary mt-3" type="submit" disabled={true}>
             Create account
           </button>
           <b-form-valid-feedback state={this.registrationSuccessMessage !== null}>
