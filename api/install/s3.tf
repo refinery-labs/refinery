@@ -13,11 +13,11 @@ resource "aws_s3_bucket" "lambda-logging" {
     enabled = true
 
     expiration {
-      days = 7
+      days = 2
     }
 
     noncurrent_version_expiration {
-      days = 7
+      days = 2
     }
 
     abort_incomplete_multipart_upload_days = 7
@@ -97,11 +97,11 @@ resource "aws_s3_bucket" "lambda-build-packages" {
     enabled = true
 
     expiration {
-      days = 21
+      days = 60
     }
 
     noncurrent_version_expiration {
-      days = 21
+      days = 60
     }
 
     abort_incomplete_multipart_upload_days = 1

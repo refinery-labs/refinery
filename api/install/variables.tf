@@ -49,7 +49,7 @@ variable "ssh_key_name" {
   default = "refinery-customer-support-ssh-key"
 }
 
-variable "redis_secrets" {
-  type = map(string)
-}
+//variable "redis_secrets" {
+//  type = map(string)
+//}
 

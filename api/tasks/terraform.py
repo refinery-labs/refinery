@@ -186,7 +186,7 @@ def terraform_configure_aws_account(aws_client_factory, app_config, preterraform
             terraform_state = file_handler.read()
 
         terraform_configuration_data["terraform_state"] = terraform_state
-        terraform_configuration_data["redis_hostname"] = terraform_provisioned_account_details["redis_elastic_ip"]["value"]
+        terraform_configuration_data["redis_hostname"] = "FAKE_HOST" # terraform_provisioned_account_details["redis_elastic_ip"]["value"]
         terraform_configuration_data["ssh_public_key"] = terraform_provisioned_account_details[
             "refinery_redis_ssh_key_public_key_openssh"]["value"]
         terraform_configuration_data["ssh_private_key"] = terraform_provisioned_account_details[
