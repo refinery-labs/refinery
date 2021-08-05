@@ -243,7 +243,52 @@ def terraform_apply(aws_client_factory, app_config, preterraform_manager, sts_cl
 
         refresh_state_parameter = "true" if refresh_terraform_state else "false"
 
+        # Terraform migrate provider
+        process_handler = Popen(
+            [
+                temporary_directory + "terraform",
+                "state",
+                "replace-provider",
+                "-auto-approve",
+                "--",
+                "-/aws",
+                "hashicorp/aws"
+            ],
+            stdout=PIPE,
+            stderr=PIPE,
+            shell=False,
+            cwd=temporary_directory,
+        )
+        process_stdout, process_stderr = run_terraform_process(process_handler)
+
+        if process_stderr.strip():
+            logit("The 'terraform state replace-provider' has failed!", "error")
+            logit(process_stderr, "error")
+            logit(process_stdout, "error")
+
+            raise Exception("Terraform replace-provider failed.")
+
         # Terraform plan
+        process_handler = Popen(
+            [
+                temporary_directory + "terraform",
+                "init"
+            ],
+            stdout=PIPE,
+            stderr=PIPE,
+            shell=False,
+            cwd=temporary_directory,
+        )
+        process_stdout, process_stderr = run_terraform_process(process_handler)
+
+        if process_stderr.strip():
+            logit("The 'terraform init' has failed!", "error")
+            logit(process_stderr, "error")
+            logit(process_stdout, "error")
+
+            raise Exception("Terraform init failed.")
+
+        # Terraform apply
         process_handler = Popen(
             [
                 temporary_directory + "terraform",
