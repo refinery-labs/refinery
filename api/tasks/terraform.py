@@ -68,10 +68,10 @@ def _write_terraform_base_files(app_config, sts_client, aws_account_data, base_d
         "secret_key": assumed_role_credentials["secret_access_key"],
         "region": app_config.get("region_name"),
         "s3_bucket_suffix": aws_account_data["s3_bucket_suffix"],
-        "redis_secrets": {
-            "password": aws_account_data["redis_password"],
-            "secret_prefix": aws_account_data["redis_secret_prefix"],
-        }
+        # "redis_secrets": {
+        #     "password": aws_account_data["redis_password"],
+        #     "secret_prefix": aws_account_data["redis_secret_prefix"],
+        # }
     }
 
     logit("Writing Terraform input variables to file...")
