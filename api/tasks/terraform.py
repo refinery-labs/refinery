@@ -311,6 +311,51 @@ def terraform_plan(app_config, sts_client, aws_account_data, refresh_terraform_s
 
         refresh_state_parameter = "true" if refresh_terraform_state else "false"
 
+        # Terraform migrate provider
+        process_handler = Popen(
+            [
+                temporary_directory + "terraform",
+                "state",
+                "replace-provider",
+                "-auto-approve",
+                "--",
+                "-/aws",
+                "hashicorp/aws"
+            ],
+            stdout=PIPE,
+            stderr=PIPE,
+            shell=False,
+            cwd=temporary_directory,
+        )
+        process_stdout, process_stderr = run_terraform_process(process_handler)
+
+        if process_stderr.strip():
+            logit("The 'terraform state replace-provider' has failed!", "error")
+            logit(process_stderr, "error")
+            logit(process_stdout, "error")
+
+            raise Exception("Terraform replace-provider failed.")
+
+        # Terraform plan
+        process_handler = Popen(
+            [
+                temporary_directory + "terraform",
+                "init"
+            ],
+            stdout=PIPE,
+            stderr=PIPE,
+            shell=False,
+            cwd=temporary_directory,
+        )
+        process_stdout, process_stderr = run_terraform_process(process_handler)
+
+        if process_stderr.strip():
+            logit("The 'terraform init' has failed!", "error")
+            logit(process_stderr, "error")
+            logit(process_stdout, "error")
+
+            raise Exception("Terraform init failed.")
+
         # Terraform plan
         process_handler = Popen(
             [
@@ -319,7 +364,7 @@ def terraform_plan(app_config, sts_client, aws_account_data, refresh_terraform_s
                 "-refresh=" + refresh_state_parameter,
                 "-var-file",
                 temporary_directory + "customer_config.json",
-            ],
+                ],
             stdout=PIPE,
             stderr=PIPE,
             shell=False,
