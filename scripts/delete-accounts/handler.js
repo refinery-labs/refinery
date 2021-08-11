@@ -72,7 +72,7 @@ async function getResetLinkForMessage(url) {
 
 async function solveRateLimitingCaptcha(page) {
   const shouldSolveRateLimitCaptcha = await page.waitForSelector('#captcha_image', {
-    visible: true, timeout: 2000
+    visible: true, timeout: 4000
   }).then(() => {
     return true;
   }).catch((error) => {
@@ -199,7 +199,7 @@ async function fetchPasswordResetURL(email) {
 }
 
 async function resetAccountPassword(page, tmpPassword) {
-  console.log('reseting the password');
+  console.log('reseting the password to:', tmpPassword);
   await page.waitForSelector('#new_password');
   await page.evaluate((password) => {
     document.getElementById('new_password').value = password
@@ -233,12 +233,23 @@ async function loginToAccount(page, email, tmpPassword) {
   await page.evaluate((password) => {
     document.getElementById('password').value = password
   }, tmpPassword);
+  await page.waitFor(200);
   await page.click('#signin_button');
+  console.log('sign in button clicked');
 }
 
 async function disableAccount(page) {
   console.log('wait for the account page to load');
-  await page.waitForSelector('button[data-testid="aws-billing-account-form-button-close-account"]');
+
+  await page.goto('https://console.aws.amazon.com/billing/home?#/account');
+
+  await page.waitFor(5000);
+
+  // console.log('page contents:', await page.content());
+
+  await page.waitForSelector('button[data-testid="aws-billing-account-form-button-close-account"]', {
+    timeout: 60000
+  });
   await page.$eval('.close-account-checkbox > input', el => el.checked = true);
 
   await page.$eval('button[data-testid="aws-billing-account-form-button-close-account"]', el => {
@@ -246,12 +257,17 @@ async function disableAccount(page) {
     el.click()
   });
 
+  console.log('clicked button... waiting for selector again')
+
   await page.waitForSelector('button[data-testid="aws-billing-account-modal-button-close-account"]');
   await page.click('button[data-testid="aws-billing-account-modal-button-close-account"]');
 }
 
 async function resetPasswordDeleteAccount(page, email) {
   const tmpPassword = generatePassword();
+
+  console.log('Email:', email);
+  console.log('Password:', tmpPassword);
 
   await page.goto(awsLandingURL);
 
@@ -273,10 +289,6 @@ async function resetPasswordDeleteAccount(page, email) {
 
   await loginToAccount(page, email, tmpPassword);
 
-  await disableAccount(page);
-
-  // TODO make sure network request goes through?
-  await page.waitFor(4000);
   return true;
 }
 
@@ -298,6 +310,10 @@ async function attemptPasswordReset(page, email) {
 async function deleteAccount(event, context, callback) {
   const email = event.email;
 
+  if (!email) {
+    throw new Error('Missing email for request');
+  }
+
   try {
     const browser = await puppeteer.launch({
       args: chrome.args,
@@ -308,9 +324,19 @@ async function deleteAccount(event, context, callback) {
 
     const success = await attemptPasswordReset(page, email);
 
+    console.log('password reset successful')
+
+    await page.waitFor(500);
+
+    await disableAccount(page);
+
+    // TODO make sure network request goes through?
+    await page.waitFor(4000);
+
     await browser.close();
 
     if (success) {
+      console.log('DELETED ACCOUNT SUCCESS: ', email);
       const msg = 'successfully deleted account';
       return context.succeed(msg);
     } else {

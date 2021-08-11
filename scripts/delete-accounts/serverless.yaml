@@ -4,7 +4,7 @@ provider:
   name: aws
   runtime: nodejs12.x
   region: us-west-2
-  timeout: 60
+  timeout: 180
   environment:
     MAILGUN_API_KEY: ${file(secrets.json):MAILGUN_API_KEY}
     DBC_USERNAME: ${file(secrets.json):DBC_USERNAME}
@@ -13,4 +13,4 @@ provider:
 functions:
   deleteAccount:
     handler: handler.deleteAccount
-    timeout: 60
+    timeout: 180
