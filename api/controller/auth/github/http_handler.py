@@ -97,7 +97,7 @@ class AuthenticateWithGithub(BaseHandler):
             self.authenticate_user_id(user.id)
 
         except (BadRequestStateException, GithubOAuthException) as e:
-            self.respond_with_error(e.message)
+            self.respond_with_error(e)
             raise gen.Return()
 
         # return script for closing this window, the user should be taken back to the original page
