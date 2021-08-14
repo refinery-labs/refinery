@@ -7,10 +7,10 @@ windows:
 - window_name: background-processes
   layout: tiled
   panes:
-    - cd ~ && ./ide-code/idea-IU-183.5429.30/bin/idea.sh
+#    - cd ~ && ./ide-code/idea-IU-183.5429.30/bin/idea.sh
     - docker-machine ssh machine-kvm-rancher -L 8002:localhost:80 -L 8080:localhost:8080 -L 5432:localhost:5432
     - cd ./scripts/docker-machine-dev-flow/ && ./sync-files-to-docker-machine.sh
-- window_name: refinery-dev-tasks
+- window_name: refinery-dev-taskRepoSelectionModals
   layout: tiled
   shell_command_before:
     - docker-compose start postgresdb

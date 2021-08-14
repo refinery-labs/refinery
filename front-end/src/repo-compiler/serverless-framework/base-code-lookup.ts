@@ -126,6 +126,48 @@ function makeBlockingStream__refinery(stream) {
 }
 `;
 
+const PYTHON_BASE_CODE = `
+#!/bin/python
+# This code hasn't been tested, and you'll have to fix it yourself. However, this does roughly what it needs to do.
+# You probably need to add an "__init__.py" file to this folder in order to use the import syntax in Python.
+
+import traceback
+import json
+import sys
+
+def _init():
+  raw_input_data = sys.stdin.read()
+  input_data = json.loads( raw_input_data )
+  lambda_input = input_data[ "lambda_input" ]
+  backpack = input_data[ "backpack" ]
+
+  try:
+    # This call to main will need to import the code in "code_block.py"
+    output = main( lambda_input, backpack )
+    print( "<REFINERY_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + json.dumps({
+      "backpack": backpack,
+      "output": output,
+    }) + "<REFINERY_OUTPUT_CUSTOM_RUNTIME_END_MARKER>" )
+    backpack = {}
+  except:
+    print( "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + json.dumps({
+      "backpack": backpack,
+      "output": traceback.format_exc()
+    }) + "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>" )
+    backpack = {}
+    exit(-1)
+    
+  exit(0)
+_init()
+`;
+
+export const UNIMPLEMENTED_BASE_CODE_MESSAGE =
+  '# Unimplemented Base Code. You will have to write a function that calls the code block in this folder manually.';
+
 export const languageToBaseCodeLookup: Record<string, string> = {
-  'nodejs8.10': node810BaseCode
+  'nodejs8.10': node810BaseCode,
+  'nodejs10.16.3': node810BaseCode,
+  'nodejs10.20.1': node810BaseCode,
+  'python2.7': PYTHON_BASE_CODE,
+  'python3.6': PYTHON_BASE_CODE
 };

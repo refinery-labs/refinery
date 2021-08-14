@@ -1,9 +1,3 @@
-// Don't record sessions in dev mode
-if (process.env.NODE_ENV !== 'production') {
-  // @ts-ignore
-  window.FS.shutdown();
-}
-
 import { ProjectViewGetters } from '@/constants/store-constants';
 
 import Vue from 'vue';

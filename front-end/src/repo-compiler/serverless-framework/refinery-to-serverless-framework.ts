@@ -28,7 +28,10 @@ import {
 import { convertProjectDownloadZipConfigToFileList, createDownloadZipConfig } from '@/utils/project-debug-utils';
 import { getFolderName, getUniqueLambdaIdentifier, maybeMkdir, writeConfig } from '@/repo-compiler/shared/fs-utils';
 import slugify from 'slugify';
-import { languageToBaseCodeLookup } from '@/repo-compiler/serverless-framework/base-code-lookup';
+import {
+  languageToBaseCodeLookup,
+  UNIMPLEMENTED_BASE_CODE_MESSAGE
+} from '@/repo-compiler/serverless-framework/base-code-lookup';
 
 const languageToLayerLookup: Record<string, string> = {
   'nodejs8.10': 'arn:aws:lambda:us-west-2:623905218559:layer:refinery-layer:1'
@@ -192,7 +195,13 @@ async function handleLambda(
     };
   }, {});
 
-  await fs.promises.writeFile(Path.join(lambdaDir, 'lambda'), languageToBaseCodeLookup[lambda.language]);
+  console.log('file path:', Path.join(lambdaDir, 'lambda'));
+
+  if (languageToBaseCodeLookup[lambda.language]) {
+    await fs.promises.writeFile(Path.join(lambdaDir, 'lambda'), languageToBaseCodeLookup[lambda.language]);
+  } else {
+    await fs.promises.writeFile(Path.join(lambdaDir, 'lambda'), UNIMPLEMENTED_BASE_CODE_MESSAGE);
+  }
 
   const serverlessFunction = createServerlessLambdaFunction(
     Path.join('..', relativePath),
@@ -200,6 +209,15 @@ async function handleLambda(
     lambdaEvents,
     envVars
   );
+
+  Object.values(serverlessFunction).map(p => {
+    // Strip undefined values
+    // @ts-ignore
+    if (p.layers && p.layers.includes(undefined)) {
+      p.layers = p.layers.filter(p => p !== undefined);
+    }
+  });
+  console.log('serverlessFunction', serverlessFunction);
 
   const lambdaConfig = Path.join(lambdaDir, 'serverless.yaml');
   await writeConfig(fs, lambdaConfig, serverlessFunction);
@@ -253,6 +271,8 @@ export async function saveProjectToServerlessFramework(
   const refineryDir = Path.join(dir, GLOBAL_BASE_PATH);
 
   const serverlessDir = Path.join(refineryDir, SERVERLESS_CONFIG_FOLDER);
+  console.log('first maybeMkdir');
+
   await maybeMkdir(fs, serverlessDir);
 
   const nodeToWorkflowState = project.workflow_states.reduce((workflowStates, w: WorkflowState) => {
@@ -262,9 +282,11 @@ export async function saveProjectToServerlessFramework(
     };
   }, {} as Record<string, WorkflowState>);
 
+  console.log('pre-write workflows');
   const nodeToEventTargetsLookup = project.workflow_relationships.reduce((lambdaEventNodeLookup, wr) => {
     const currentLambdaEvents = lambdaEventNodeLookup[wr.next] || [];
 
+    console.log('pre-write workflow state', wr.node, nodeToWorkflowState[wr.node]);
     const workflowStateEvent = workflowStateToEvent(nodeToWorkflowState[wr.node]);
     if (!workflowStateEvent) {
       return lambdaEventNodeLookup;
@@ -280,6 +302,8 @@ export async function saveProjectToServerlessFramework(
     .filter(w => w.type === WorkflowStateType.LAMBDA)
     .reduce(async (pathLookup, w) => {
       const awaitedLookup = await pathLookup;
+
+      console.log('pre-write lambda ', w.id, nodeToEventTargetsLookup[w.id]);
       const path = await handleLambda(fs, dir, project, config, w, nodeToEventTargetsLookup[w.id]);
       return {
         ...awaitedLookup,
@@ -287,6 +311,7 @@ export async function saveProjectToServerlessFramework(
       };
     }, Promise.resolve({} as Record<string, string>));
 
+  console.log('pre create serverless service config');
   const serverlessConfig = createServerlessServiceConfig(
     project,
     Object.keys(lambdaToPathLookup).map(lambdaId =>
@@ -294,12 +319,16 @@ export async function saveProjectToServerlessFramework(
     )
   );
   const serverlessConfigPath = Path.join(serverlessDir, 'serverless.yaml');
+
+  console.log('pre-write config');
   await writeConfig(fs, serverlessConfigPath, serverlessConfig);
 
   const outputScriptsDir = Path.join(serverlessDir, 'scripts');
+  console.log('pre-maybeMkdir');
   await maybeMkdir(fs, outputScriptsDir);
 
   const outputHandlerJs = Path.join(outputScriptsDir, 'output.js');
+  console.log('pre-write outputHandlerJs');
   await fs.promises.writeFile(
     outputHandlerJs,
     `
@@ -309,4 +338,6 @@ function handler (data, serverless, options) {
 
 module.exports = { handler }`
   );
+
+  console.log('post-write outputHandlerJs');
 }
