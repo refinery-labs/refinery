@@ -1,5 +1,7 @@
 # Refinery
 
+I once had a love, but now they are dead.
+
 ## Development Configuration
 
 To run your own version of Refinery first clone this repository to your machine.
