@@ -22,6 +22,7 @@ from tasks.build.golang import get_go_112_base_code
 from tasks.build.nodejs import build_nodejs_10163_lambda, build_nodejs_810_lambda, build_nodejs_10201_lambda
 from tasks.build.php import build_php_73_lambda
 from tasks.build.python import build_python36_lambda, build_python27_lambda
+from tasks.build.temporal.python import Python36Builder
 from tasks.s3 import s3_object_exists
 from utils.general import logit, log_exception
 from utils.wrapped_aws_functions import lambda_list_event_source_mappings, api_gateway_get_rest_api, \
@@ -278,6 +279,15 @@ def build_lambda(app_config, aws_client_factory, credentials, lambda_object):
             lambda_object.code,
             lambda_object.libraries
         )
+    elif lambda_object.language == Python36Builder.RUNTIME_PRETTY_NAME:
+        builder = Python36Builder(
+            app_config,
+            aws_client_factory,
+            credentials,
+            lambda_object.code,
+            lambda_object.libraries
+        )
+        package_zip_data = builder.build()
     else:
         raise InvalidLanguageException(
             "Unknown language supplied to build Lambda with"
@@ -402,9 +412,9 @@ def _deploy_aws_lambda(aws_client_factory, credentials, lambda_object: LambdaWor
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.create_function
         response = lambda_client.create_function(
             FunctionName=lambda_object.name,
-            Runtime="provided",
+            Runtime=lambda_object.runtime,
             Role=lambda_object.role,
-            Handler="lambda._init",
+            Handler=lambda_object.handler,
             Code={
                 "S3Bucket": credentials["lambda_packages_bucket"],
                 "S3Key": s3_package_zip_path,

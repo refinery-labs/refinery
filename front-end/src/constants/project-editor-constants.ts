@@ -215,6 +215,10 @@ def main(block_input, backpack)
     return "Hello World!"
 end
 `,
+  [SupportedLanguage.PYTHON_36_TEMPORAL]: `
+def main(block_input, backpack):
+    return "Hello World!"
+`,
   [SupportedLanguage.PYTHON_3]: `
 def main(block_input, backpack):
     return "Hello World!"

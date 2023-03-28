@@ -94,6 +94,7 @@ export const languageToAceLangMap: MonacoLanguageLookup = {
   [SupportedLanguage.NODEJS_1020]: 'javascript',
   [SupportedLanguage.PYTHON_2]: 'python',
   [SupportedLanguage.PYTHON_3]: 'python',
+  [SupportedLanguage.PYTHON_36_TEMPORAL]: 'python',
   [SupportedLanguage.GO1_12]: 'go',
   [SupportedLanguage.PHP7]: 'php',
   [SupportedLanguage.RUBY2_6_4]: 'ruby',
@@ -111,6 +112,7 @@ export const LanguageToBaseRepoURLMap: LanguageToBaseRepoURL = {
   [SupportedLanguage.NODEJS_1020]: 'https://www.npmjs.com',
   [SupportedLanguage.PYTHON_2]: 'https://pypi.org',
   [SupportedLanguage.PYTHON_3]: 'https://pypi.org',
+  [SupportedLanguage.PYTHON_36_TEMPORAL]: 'https://pypi.org',
   [SupportedLanguage.GO1_12]: null,
   [SupportedLanguage.PHP7]: 'https://packagist.org',
   [SupportedLanguage.RUBY2_6_4]: 'https://rubygems.org'
@@ -122,6 +124,7 @@ export const LanguageToLibraryRepoURLMap: LanguageToLibraryRepoURL = {
   [SupportedLanguage.NODEJS_8]: LanguageToBaseRepoURLMap[SupportedLanguage.NODEJS_8] + '/package/',
   [SupportedLanguage.NODEJS_10]: LanguageToBaseRepoURLMap[SupportedLanguage.NODEJS_10] + '/package/',
   [SupportedLanguage.NODEJS_1020]: LanguageToBaseRepoURLMap[SupportedLanguage.NODEJS_1020] + '/package/',
+  [SupportedLanguage.PYTHON_36_TEMPORAL]: LanguageToBaseRepoURLMap[SupportedLanguage.PYTHON_36_TEMPORAL] + '/project/',
   [SupportedLanguage.PYTHON_3]: LanguageToBaseRepoURLMap[SupportedLanguage.PYTHON_3] + '/project/',
   [SupportedLanguage.PYTHON_2]: LanguageToBaseRepoURLMap[SupportedLanguage.PYTHON_2] + '/project/',
   [SupportedLanguage.GO1_12]: null,
