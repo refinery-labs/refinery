@@ -677,8 +677,13 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
 
       // Check if the current block is python and if the next language is python too
       const isCurrentBlockPython =
-        selectedBlock.language === SupportedLanguage.PYTHON_2 || selectedBlock.language === SupportedLanguage.PYTHON_3;
-      const isNextBlockPython = language === SupportedLanguage.PYTHON_2 || language === SupportedLanguage.PYTHON_3;
+        selectedBlock.language === SupportedLanguage.PYTHON_2 ||
+        selectedBlock.language === SupportedLanguage.PYTHON_36 ||
+        selectedBlock.language === SupportedLanguage.PYTHON_38;
+      const isNextBlockPython =
+        language === SupportedLanguage.PYTHON_2 ||
+        language === SupportedLanguage.PYTHON_36 ||
+        language === SupportedLanguage.PYTHON_38;
 
       // If we are just swapping Python versions, then leave code + libraries alone.
       if (isCurrentBlockPython && isNextBlockPython) {

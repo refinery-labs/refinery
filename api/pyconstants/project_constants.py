@@ -16,6 +16,7 @@ DEFAULT_PROJECT_CONFIG = {
 
 
 LAMBDA_SUPPORTED_LANGUAGES = [
+    "python3.8",
     "python3.6",
     "python2.7",
     "nodejs8.10",
@@ -36,11 +37,13 @@ CUSTOM_RUNTIME_LANGUAGES = [
     "go1.12",
     "python2.7",
     "python3.6",
+    "python3.8",
     "ruby2.6.4"
 ]
 
 
 LAMBDA_BASE_LIBRARIES: Dict[str, List[str]] = {
+    "python3.8": [],
     "python3.6": [],
     "python2.7": [],
     "nodejs8.10": [],
