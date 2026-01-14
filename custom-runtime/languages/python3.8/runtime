@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Python 3.8 is included in all Lambda execution environments, so we just run the script with that.
+python3 "$@"

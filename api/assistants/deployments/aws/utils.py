@@ -96,6 +96,10 @@ def get_layers_for_lambda(language):
 		new_layers.append(
 			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:29"
 		)
+	elif language == "python3.8":
+		new_layers.append(
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python38-custom-runtime:29"
+		)
 	elif language == "ruby2.6.4":
 		new_layers.append(
 			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:29"

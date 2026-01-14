@@ -21,7 +21,7 @@ from tasks.build.ruby import build_ruby_264_lambda
 from tasks.build.golang import get_go_112_base_code
 from tasks.build.nodejs import build_nodejs_10163_lambda, build_nodejs_810_lambda, build_nodejs_10201_lambda
 from tasks.build.php import build_php_73_lambda
-from tasks.build.python import build_python36_lambda, build_python27_lambda
+from tasks.build.python import build_python38_lambda, build_python36_lambda, build_python27_lambda
 from tasks.s3 import s3_object_exists
 from utils.general import logit, log_exception
 from utils.wrapped_aws_functions import lambda_list_event_source_mappings, api_gateway_get_rest_api, \
@@ -214,6 +214,14 @@ def build_lambda(app_config, aws_client_factory, credentials, lambda_object):
 
     if lambda_object.language == "python2.7":
         package_zip_data = build_python27_lambda(
+            app_config,
+            aws_client_factory,
+            credentials,
+            lambda_object.code,
+            lambda_object.libraries
+        )
+    elif lambda_object.language == "python3.8":
+        package_zip_data = build_python38_lambda(
             app_config,
             aws_client_factory,
             credentials,
