@@ -4,6 +4,7 @@ from tornado import gen
 from typing import Dict, List, TYPE_CHECKING
 
 from assistants.deployments.diagram.workflow_states import WorkflowState
+from pyconstants.project_constants import PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
 
 if TYPE_CHECKING:
     from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
@@ -18,6 +19,9 @@ class CodeBlockWorkflowState(WorkflowState):
         self.code = None
         self.libraries = None
         self.layers = []
+        # Default runtime
+        self.runtime = "provided"
+        self.handler = "lambda._init"
 
         self.is_inline_execution = is_inline_execution
 
@@ -47,6 +51,10 @@ class CodeBlockWorkflowState(WorkflowState):
 
         if language is not None:
             self.language = language
+
+        if language == PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME:
+            self.runtime = "python3.6"
+            self.handler = "lambda_function.lambda_handler"
 
         if code is not None:
             self.code = code

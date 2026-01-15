@@ -28,7 +28,8 @@ export enum SupportedLanguage {
   NODEJS_10 = 'nodejs10.16.3',
   NODEJS_1020 = 'nodejs10.20.1',
   PHP7 = 'php7.3',
-  GO1_12 = 'go1.12'
+  GO1_12 = 'go1.12',
+  PYTHON_36_TEMPORAL = 'Python 3.6 Temporal'
 }
 
 export enum WorkflowStateType {
